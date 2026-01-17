@@ -13,7 +13,7 @@
     
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      width: 360px;
+      width: 380px;
       min-height: 200px;
       background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
       color: #e0e0e0;
@@ -130,6 +130,43 @@
       color: #ef4444;
     }
     
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    
+    .tab-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      background: rgba(255,255,255,0.05);
+      color: #a0a0a0;
+      transition: all 0.2s;
+    }
+    
+    .tab-btn.active {
+      background: rgba(0, 180, 216, 0.2);
+      color: #00b4d8;
+    }
+    
+    .tab-btn:hover:not(.active) {
+      background: rgba(255,255,255,0.1);
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
     .records-section {
       background: rgba(255,255,255,0.05);
       border-radius: 10px;
@@ -158,7 +195,7 @@
     }
     
     .records-list {
-      max-height: 280px;
+      max-height: 250px;
       overflow-y: auto;
     }
     
@@ -204,6 +241,7 @@
     .record-field .value {
       color: #d0d0d0;
       font-weight: 500;
+      word-break: break-word;
     }
     
     .empty-state {
@@ -228,7 +266,7 @@
   
   <div class="actions">
     <button id="extractBtn" class="btn btn-primary">
-      <span class="btn-text">Extract Opportunity</span>
+      <span class="btn-text">Extract Record</span>
       <span class="spinner" style="display: none;"></span>
     </button>
     <button id="downloadBtn" class="btn btn-secondary">
@@ -238,15 +276,40 @@
   
   <div id="status" class="status"></div>
   
-  <div class="records-section">
-    <div class="records-header">
-      <h2>Extracted Records</h2>
-      <span id="recordsCount" class="records-count">0</span>
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="opportunities">Opportunities</button>
+    <button class="tab-btn" data-tab="leads">Leads</button>
+  </div>
+  
+  <!-- Opportunities Tab -->
+  <div id="opportunities-tab" class="tab-content active">
+    <div class="records-section">
+      <div class="records-header">
+        <h2>Opportunities</h2>
+        <span id="opportunitiesCount" class="records-count">0</span>
+      </div>
+      <div id="opportunitiesList" class="records-list">
+        <div class="empty-state">
+          <div class="icon">📋</div>
+          <div>No opportunities extracted yet</div>
+        </div>
+      </div>
     </div>
-    <div id="recordsList" class="records-list">
-      <div class="empty-state">
-        <div class="icon">📋</div>
-        <div>No records extracted yet</div>
+  </div>
+  
+  <!-- Leads Tab -->
+  <div id="leads-tab" class="tab-content">
+    <div class="records-section">
+      <div class="records-header">
+        <h2>Leads</h2>
+        <span id="leadsCount" class="records-count">0</span>
+      </div>
+      <div id="leadsList" class="records-list">
+        <div class="empty-state">
+          <div class="icon">👤</div>
+          <div>No leads extracted yet</div>
+        </div>
       </div>
     </div>
   </div>

@@ -1,25 +1,55 @@
 /**
  * Content Script - Main Entry Point
  * Handles messaging with background service worker
- * Orchestrates extraction from Opportunity pages
+ * Orchestrates extraction from Opportunity and Lead pages
  */
 
-// The extractor (opportunity.js) is loaded BEFORE this script via manifest content_scripts
-// Functions like extractRecordDetail are available directly (not on window in content script context)
+// The extractors are loaded BEFORE this script via manifest content_scripts:
+// - opportunity.js provides: extractRecordDetail()
+// - lead.js provides: extractLeadRecordDetail()
 
 /**
- * Run extraction and send result to background
+ * Detect the current Salesforce object type from URL
+ */
+function detectObjectType() {
+    const url = window.location.href;
+
+    if (url.includes('/lightning/r/Opportunity/')) {
+        return 'opportunity';
+    }
+    if (url.includes('/lightning/r/Lead/')) {
+        return 'lead';
+    }
+
+    // Could add more object types here in the future
+    return null;
+}
+
+/**
+ * Run extraction based on detected object type
  */
 async function runExtraction(requestId) {
     console.log('[Content] Running extraction for requestId:', requestId);
 
-    try {
-        // extractRecordDetail is defined in opportunity.js which loads first
-        if (typeof extractRecordDetail !== 'function') {
-            throw new Error('Extractor function not available - opportunity.js may not have loaded');
-        }
+    const objectType = detectObjectType();
+    console.log('[Content] Detected object type:', objectType);
 
-        const record = await extractRecordDetail();
+    try {
+        let record;
+
+        if (objectType === 'opportunity') {
+            if (typeof extractRecordDetail !== 'function') {
+                throw new Error('Opportunity extractor not available');
+            }
+            record = await extractRecordDetail();
+        } else if (objectType === 'lead') {
+            if (typeof extractLeadRecordDetail !== 'function') {
+                throw new Error('Lead extractor not available');
+            }
+            record = await extractLeadRecordDetail();
+        } else {
+            throw new Error('Unknown or unsupported Salesforce object type. Navigate to an Opportunity or Lead record page.');
+        }
 
         console.log('[Content] Extraction successful:', record);
         chrome.runtime.sendMessage({
@@ -49,13 +79,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     switch (message.type) {
         case 'PING':
-            // Respond to handshake ping
             console.log('[Content] Responding to PING');
             sendResponse({ type: 'PONG' });
             return true;
 
         case 'RUN_EXTRACTION':
-            // Start extraction async, respond immediately
             console.log('[Content] Starting extraction for requestId:', message.requestId);
             sendResponse({ status: 'started' });
             runExtraction(message.requestId);
@@ -67,14 +95,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 /**
- * Expose debug function for manual testing in devtools
+ * Expose debug functions for manual testing in devtools
  */
 window.runExtractionForDebug = async function () {
-    if (typeof extractRecordDetail === 'function') {
+    const objectType = detectObjectType();
+    if (objectType === 'opportunity' && typeof extractRecordDetail === 'function') {
         return await extractRecordDetail();
     }
-    throw new Error('Extractor not available');
+    if (objectType === 'lead' && typeof extractLeadRecordDetail === 'function') {
+        return await extractLeadRecordDetail();
+    }
+    throw new Error('No extractor available for this page');
 };
 
 console.log('[Content] SF CRM Extractor content script initialized');
+console.log('[Content] Supports: Opportunity, Lead');
 console.log('[Content] Use window.runExtractionForDebug() for manual testing');

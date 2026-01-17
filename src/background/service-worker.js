@@ -14,7 +14,7 @@ const SALESFORCE_PATTERNS = [
  * Generate a UUID v4 for request tracking
  */
 function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -122,7 +122,7 @@ function sendExtractionRequest(tabId, requestId) {
     // Set up listener for extraction result
     const listener = (message, sender) => {
       if (sender.tab?.id !== tabId) return;
-      
+
       if (message.type === 'EXTRACTION_RESULT' && message.requestId === requestId) {
         clearTimeout(timeout);
         chrome.runtime.onMessage.removeListener(listener);
@@ -136,9 +136,9 @@ function sendExtractionRequest(tabId, requestId) {
     chrome.runtime.onMessage.addListener(listener);
 
     // Send extraction request
-    chrome.tabs.sendMessage(tabId, { 
-      type: 'RUN_EXTRACTION', 
-      requestId: requestId 
+    chrome.tabs.sendMessage(tabId, {
+      type: 'RUN_EXTRACTION',
+      requestId: requestId
     }, (response) => {
       if (chrome.runtime.lastError) {
         clearTimeout(timeout);
@@ -153,30 +153,36 @@ function sendExtractionRequest(tabId, requestId) {
 
 /**
  * Merge extracted record into storage
+ * Supports both opportunities and leads based on objectType
  */
 async function mergeToStorage(record) {
   return new Promise((resolve) => {
     chrome.storage.local.get(['salesforce_data'], (result) => {
       let data = result.salesforce_data || {};
-      let opportunities = data.opportunities || [];
-      
+
+      // Determine which collection to use based on objectType
+      const objectType = record.objectType || 'opportunity';
+      const collectionName = objectType === 'lead' ? 'leads' : 'opportunities';
+
+      let collection = data[collectionName] || [];
+
       // Find existing record by id
-      const existingIndex = opportunities.findIndex(r => r.id === record.id);
+      const existingIndex = collection.findIndex(r => r.id === record.id);
       let inserted = 0, updated = 0;
-      
+
       if (existingIndex >= 0) {
-        opportunities[existingIndex] = record;
+        collection[existingIndex] = record;
         updated = 1;
       } else {
-        opportunities.push(record);
+        collection.push(record);
         inserted = 1;
       }
-      
-      data.opportunities = opportunities;
-      
+
+      data[collectionName] = collection;
+
       chrome.storage.local.set({ salesforce_data: data }, () => {
-        console.log('[SW] Record merged to storage:', { inserted, updated });
-        resolve({ inserted, updated });
+        console.log(`[SW] ${objectType} record merged to storage:`, { inserted, updated });
+        resolve({ inserted, updated, objectType });
       });
     });
   });
@@ -189,68 +195,68 @@ async function handleExtractRequest(sendResponse) {
   try {
     // Get active tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
+
     if (!tab) {
       sendResponse({ status: 'error', reason: 'NO_ACTIVE_TAB' });
       return;
     }
-    
+
     // Validate URL
     if (!isSalesforceUrl(tab.url)) {
-      sendResponse({ 
-        status: 'error', 
+      sendResponse({
+        status: 'error',
         reason: 'NOT_SALESFORCE',
         message: 'Please navigate to a Salesforce Opportunity page'
       });
       return;
     }
-    
+
     // Perform handshake
     const handshake = await performHandshake(tab.id);
     if (!handshake.success) {
       sendResponse({ status: 'error', reason: handshake.reason });
       return;
     }
-    
+
     // Send extraction request
     const requestId = generateUUID();
     let result = await sendExtractionRequest(tab.id, requestId);
-    
+
     // Retry once on timeout
     if (!result.success && result.reason === 'TIMEOUT') {
       console.log('[SW] Retrying extraction...');
       result = await sendExtractionRequest(tab.id, generateUUID());
     }
-    
+
     if (!result.success) {
-      sendResponse({ 
-        status: 'error', 
+      sendResponse({
+        status: 'error',
         reason: result.reason,
         error: result.error
       });
       return;
     }
-    
+
     // Validate payload
     const payload = result.payload;
     if (!payload || !payload.id || !payload.data) {
       sendResponse({ status: 'error', reason: 'INVALID_PAYLOAD' });
       return;
     }
-    
+
     // Merge to storage
     const mergeResult = await mergeToStorage(payload);
-    
-    sendResponse({ 
-      status: 'ok', 
+
+    sendResponse({
+      status: 'ok',
       merged: mergeResult,
       record: payload
     });
-    
+
   } catch (err) {
     console.error('[SW] Extract request error:', err);
-    sendResponse({ 
-      status: 'error', 
+    sendResponse({
+      status: 'error',
       reason: 'UNKNOWN_ERROR',
       message: err.message
     });
@@ -260,13 +266,13 @@ async function handleExtractRequest(sendResponse) {
 // Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[SW] Message received:', message.type, 'from:', sender.tab ? 'tab' : 'popup');
-  
+
   if (message.type === 'REQUEST_EXTRACT') {
     // Handle async - return true to keep channel open
     handleExtractRequest(sendResponse);
     return true;
   }
-  
+
   // EXTRACTION_RESULT and EXTRACTION_ERROR are handled in sendExtractionRequest listener
   return false;
 });
