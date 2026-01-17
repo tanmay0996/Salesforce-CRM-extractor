@@ -633,6 +633,14 @@ tabBtns.forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
 
+// Real-time sync across tabs - auto-refresh when storage changes
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.salesforce_data) {
+    console.log('[Popup] Storage changed, refreshing records...');
+    loadRecords();
+  }
+});
+
 // Initial load
 loadRecords();
 

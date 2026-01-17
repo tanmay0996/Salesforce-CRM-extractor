@@ -297,6 +297,52 @@ window.runExtractionForDebug = async function () {
     }
 };
 
+/**
+ * DOM Change Detection - Detect SPA navigation
+ * Shows indicator when navigating to a supported record page
+ */
+const DOMChangeDetector = (function () {
+    let lastUrl = window.location.href;
+    let observer = null;
+
+    function checkUrlChange() {
+        const currentUrl = window.location.href;
+        if (currentUrl !== lastUrl) {
+            lastUrl = currentUrl;
+            const objectType = detectObjectType();
+            if (objectType) {
+                console.log('[Content] SPA navigation detected to:', objectType);
+                // Brief indicator that we're ready to extract
+                StatusIndicator.show(`${objectType.charAt(0).toUpperCase() + objectType.slice(1)} page detected`, 'success');
+                StatusIndicator.hide(1500);
+            }
+        }
+    }
+
+    function init() {
+        // Use MutationObserver to detect DOM changes (SPA navigation)
+        observer = new MutationObserver(() => {
+            checkUrlChange();
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        // Also listen to popstate for browser back/forward
+        window.addEventListener('popstate', checkUrlChange);
+
+        console.log('[Content] DOM change detection initialized');
+    }
+
+    return { init };
+})();
+
+// Initialize DOM change detection
+DOMChangeDetector.init();
+
 console.log('[Content] SF CRM Extractor content script initialized');
 console.log('[Content] Supports: Opportunity, Lead, Contact, Account, Task');
 console.log('[Content] Use window.runExtractionForDebug() for manual testing');
+
