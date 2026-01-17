@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SF CRM Extractor",
-  "version": "1.1.0",
-  "description": "Extract Salesforce Opportunity and Lead records from detail pages",
+  "version": "1.2.0",
+  "description": "Extract Salesforce Opportunity, Lead, and Contact records from detail pages",
   "permissions": [
     "storage",
     "tabs",
@@ -21,6 +21,7 @@
       "js": [
         "src/content/extractors/opportunity.js",
         "src/content/extractors/lead.js",
+        "src/content/extractors/contact.js",
         "src/content/content-main.js"
       ],
       "run_at": "document_idle"

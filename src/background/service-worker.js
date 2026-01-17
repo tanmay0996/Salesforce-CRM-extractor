@@ -153,7 +153,7 @@ function sendExtractionRequest(tabId, requestId) {
 
 /**
  * Merge extracted record into storage
- * Supports both opportunities and leads based on objectType
+ * Supports opportunities, leads, and contacts based on objectType
  */
 async function mergeToStorage(record) {
   return new Promise((resolve) => {
@@ -162,7 +162,14 @@ async function mergeToStorage(record) {
 
       // Determine which collection to use based on objectType
       const objectType = record.objectType || 'opportunity';
-      const collectionName = objectType === 'lead' ? 'leads' : 'opportunities';
+      let collectionName;
+      if (objectType === 'lead') {
+        collectionName = 'leads';
+      } else if (objectType === 'contact') {
+        collectionName = 'contacts';
+      } else {
+        collectionName = 'opportunities';
+      }
 
       let collection = data[collectionName] || [];
 

@@ -1,7 +1,7 @@
 /**
  * Popup Script
  * Handles UI interactions and communication with background service worker
- * Supports both Opportunities and Leads
+ * Supports Opportunities, Leads, and Contacts
  */
 
 // DOM Elements
@@ -12,6 +12,8 @@ const opportunitiesList = document.getElementById('opportunitiesList');
 const opportunitiesCount = document.getElementById('opportunitiesCount');
 const leadsList = document.getElementById('leadsList');
 const leadsCount = document.getElementById('leadsCount');
+const contactsList = document.getElementById('contactsList');
+const contactsCount = document.getElementById('contactsCount');
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');
 
@@ -134,6 +136,41 @@ function renderLeadCard(record) {
 }
 
 /**
+ * Render Contact card
+ */
+function renderContactCard(record) {
+  const data = record.data || {};
+
+  return `
+    <div class="record-card">
+      <div class="record-name">${escapeHtml(data.name || 'Unnamed Contact')}</div>
+      <div class="record-fields">
+        <div class="record-field">
+          <div class="label">Title</div>
+          <div class="value">${escapeHtml(data.title || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Account</div>
+          <div class="value">${escapeHtml(data.accountName || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Email</div>
+          <div class="value">${escapeHtml(data.email || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Phone</div>
+          <div class="value">${escapeHtml(data.phone || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Owner</div>
+          <div class="value">${escapeHtml(data.owner || 'N/A')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Load and render stored records
  */
 function loadRecords() {
@@ -141,10 +178,12 @@ function loadRecords() {
     const data = result.salesforce_data || {};
     const opportunities = data.opportunities || [];
     const leads = data.leads || [];
+    const contacts = data.contacts || [];
 
     // Update counts
     opportunitiesCount.textContent = opportunities.length;
     leadsCount.textContent = leads.length;
+    contactsCount.textContent = contacts.length;
 
     // Render Opportunities
     if (opportunities.length === 0) {
@@ -171,6 +210,19 @@ function loadRecords() {
       const sorted = [...leads].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
       leadsList.innerHTML = sorted.map(renderLeadCard).join('');
     }
+
+    // Render Contacts
+    if (contacts.length === 0) {
+      contactsList.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📇</div>
+          <div>No contacts extracted yet</div>
+        </div>
+      `;
+    } else {
+      const sorted = [...contacts].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+      contactsList.innerHTML = sorted.map(renderContactCard).join('');
+    }
   });
 }
 
@@ -185,6 +237,18 @@ function switchTab(tabName) {
   tabContents.forEach(content => {
     content.classList.toggle('active', content.id === `${tabName}-tab`);
   });
+}
+
+/**
+ * Get display name for object type
+ */
+function getTypeName(objectType) {
+  const names = {
+    'opportunity': 'Opportunity',
+    'lead': 'Lead',
+    'contact': 'Contact'
+  };
+  return names[objectType] || 'Record';
 }
 
 /**
@@ -209,7 +273,7 @@ function handleExtract() {
 
     if (response.status === 'ok') {
       const { inserted, updated, objectType } = response.merged || {};
-      const typeName = objectType === 'lead' ? 'Lead' : 'Opportunity';
+      const typeName = getTypeName(objectType);
 
       if (inserted) {
         showStatus(`✅ New ${typeName} extracted!`, 'success');
@@ -222,6 +286,8 @@ function handleExtract() {
       // Switch to the appropriate tab
       if (objectType === 'lead') {
         switchTab('leads');
+      } else if (objectType === 'contact') {
+        switchTab('contacts');
       } else {
         switchTab('opportunities');
       }
@@ -229,7 +295,7 @@ function handleExtract() {
       loadRecords();
     } else {
       const errorMessages = {
-        'NOT_SALESFORCE': 'Navigate to a Salesforce Opportunity or Lead page',
+        'NOT_SALESFORCE': 'Navigate to a Salesforce record page',
         'NO_ACTIVE_TAB': 'No active tab found',
         'NO_CONTENT_SCRIPT': 'Could not connect to page. Try refreshing.',
         'INJECTION_FAILED': 'Failed to inject extraction script',
@@ -253,8 +319,9 @@ function handleDownload() {
     const data = result.salesforce_data || {};
     const opportunities = data.opportunities || [];
     const leads = data.leads || [];
+    const contacts = data.contacts || [];
 
-    if (opportunities.length === 0 && leads.length === 0) {
+    if (opportunities.length === 0 && leads.length === 0 && contacts.length === 0) {
       showStatus('No records to download', 'error');
       return;
     }
@@ -262,6 +329,7 @@ function handleDownload() {
     const exportData = {
       opportunities,
       leads,
+      contacts,
       exportedAt: new Date().toISOString()
     };
 
