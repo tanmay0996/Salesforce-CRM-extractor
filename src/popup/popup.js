@@ -94,10 +94,6 @@ function renderOpportunityCard(record) {
           <div class="value">${formatAmount(data.amount)}</div>
         </div>
         <div class="record-field">
-          <div class="label">Stage</div>
-          <div class="value">${escapeHtml(data.stage || 'N/A')}</div>
-        </div>
-        <div class="record-field">
           <div class="label">Close Date</div>
           <div class="value">${formatDate(data.closeDate)}</div>
         </div>
@@ -123,10 +119,6 @@ function renderLeadCard(record) {
         <div class="record-field">
           <div class="label">Company</div>
           <div class="value">${escapeHtml(data.company || 'N/A')}</div>
-        </div>
-        <div class="record-field">
-          <div class="label">Status</div>
-          <div class="value">${escapeHtml(data.leadStatus || 'N/A')}</div>
         </div>
         <div class="record-field">
           <div class="label">Email</div>

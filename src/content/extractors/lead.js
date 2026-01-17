@@ -179,13 +179,12 @@
 
         await waitForLeadContent(id);
 
-        // Extract fields (removed leadSource and owner as requested)
+        // Extract fields
         const name = getLeadName();
         const company = getLeadFieldByLabel('Company');
         const email = getLeadFieldByLabel('Email');
         // Phone label might be "Phone (2)" or similar, use partial match
         const phone = getLeadFieldByLabel('Phone', true);
-        const leadStatus = getLeadStatus();
 
         const record = {
             id,
@@ -194,8 +193,7 @@
                 name: name || null,
                 company: company || null,
                 email: email || null,
-                phone: phone || null,
-                leadStatus: leadStatus || null
+                phone: phone || null
             },
             sourceUrl: window.location.href,
             lastUpdated: Date.now()

@@ -224,7 +224,6 @@
         const name = getOpportunityName();
         const amountRaw = getByLabel('Amount');
         const amount = normalizeAmount(amountRaw);
-        const stage = getActiveStage();
         const closeDateRaw = getByLabel('Close Date');
         const closeDate = parseToISODate(closeDateRaw);
         const account = getAccountName();
@@ -236,7 +235,6 @@
             data: {
                 name: name || null,
                 amount: amount,
-                stage: stage || null,
                 closeDate: closeDate || null,
                 account: account || null,
                 owner: owner || null
