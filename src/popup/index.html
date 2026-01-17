@@ -256,6 +256,51 @@
       margin-bottom: 8px;
       opacity: 0.5;
     }
+    
+    .search-box {
+      margin-bottom: 12px;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+      color: #e0e0e0;
+      font-size: 13px;
+    }
+    
+    .search-input::placeholder {
+      color: #606060;
+    }
+    
+    .search-input:focus {
+      outline: none;
+      border-color: rgba(0, 180, 216, 0.5);
+    }
+    
+    .record-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    
+    .delete-btn {
+      background: rgba(239, 68, 68, 0.2);
+      border: none;
+      color: #ef4444;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .delete-btn:hover {
+      background: rgba(239, 68, 68, 0.4);
+    }
   </style>
 </head>
 <body>
@@ -270,11 +315,19 @@
       <span class="spinner" style="display: none;"></span>
     </button>
     <button id="downloadBtn" class="btn btn-secondary">
-      Download JSON
+      JSON
+    </button>
+    <button id="downloadCsvBtn" class="btn btn-secondary">
+      CSV
     </button>
   </div>
   
   <div id="status" class="status"></div>
+  
+  <!-- Search -->
+  <div class="search-box">
+    <input type="text" id="searchInput" class="search-input" placeholder="Search records...">
+  </div>
   
   <!-- Tabs -->
   <div class="tabs">

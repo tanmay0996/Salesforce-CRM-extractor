@@ -190,6 +190,7 @@ async function mergeToStorage(record) {
       }
 
       data[collectionName] = collection;
+      data.lastSync = Date.now();
 
       chrome.storage.local.set({ salesforce_data: data }, () => {
         console.log(`[SW] ${objectType} record merged to storage:`, { inserted, updated });

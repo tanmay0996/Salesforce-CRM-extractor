@@ -7,6 +7,8 @@
 // DOM Elements
 const extractBtn = document.getElementById('extractBtn');
 const downloadBtn = document.getElementById('downloadBtn');
+const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+const searchInput = document.getElementById('searchInput');
 const statusDiv = document.getElementById('status');
 const opportunitiesList = document.getElementById('opportunitiesList');
 const opportunitiesCount = document.getElementById('opportunitiesCount');
@@ -20,6 +22,9 @@ const tasksList = document.getElementById('tasksList');
 const tasksCount = document.getElementById('tasksCount');
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');
+
+// Current search text
+let currentSearchText = '';
 
 /**
  * Show status message
@@ -86,6 +91,48 @@ function escapeHtml(text) {
 }
 
 /**
+ * Filter records by search text
+ */
+function filterRecords(records, searchText) {
+  if (!searchText) return records;
+  const lower = searchText.toLowerCase();
+  return records.filter(r => {
+    const data = r.data || {};
+    return Object.values(data).some(v =>
+      String(v || '').toLowerCase().includes(lower)
+    );
+  });
+}
+
+/**
+ * Delete a record from storage
+ */
+function deleteRecord(objectType, recordId) {
+  chrome.storage.local.get(['salesforce_data'], (result) => {
+    const data = result.salesforce_data || {};
+
+    const collectionMap = {
+      'opportunity': 'opportunities',
+      'lead': 'leads',
+      'contact': 'contacts',
+      'account': 'accounts',
+      'task': 'tasks'
+    };
+
+    const collectionName = collectionMap[objectType];
+    if (!collectionName || !data[collectionName]) return;
+
+    data[collectionName] = data[collectionName].filter(r => r.id !== recordId);
+    data.lastSync = Date.now();
+
+    chrome.storage.local.set({ salesforce_data: data }, () => {
+      showStatus('🗑️ Record deleted', 'success');
+      loadRecords();
+    });
+  });
+}
+
+/**
  * Render Opportunity card
  */
 function renderOpportunityCard(record) {
@@ -93,7 +140,10 @@ function renderOpportunityCard(record) {
 
   return `
     <div class="record-card">
-      <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
+      <div class="record-header">
+        <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
+        <button class="delete-btn" data-type="opportunity" data-id="${escapeHtml(record.id)}">Delete</button>
+      </div>
       <div class="record-fields">
         <div class="record-field">
           <div class="label">Amount</div>
@@ -120,7 +170,10 @@ function renderLeadCard(record) {
 
   return `
     <div class="record-card">
-      <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
+      <div class="record-header">
+        <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
+        <button class="delete-btn" data-type="lead" data-id="${escapeHtml(record.id)}">Delete</button>
+      </div>
       <div class="record-fields">
         <div class="record-field">
           <div class="label">Company</div>
@@ -147,7 +200,10 @@ function renderContactCard(record) {
 
   return `
     <div class="record-card">
-      <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
+      <div class="record-header">
+        <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
+        <button class="delete-btn" data-type="contact" data-id="${escapeHtml(record.id)}">Delete</button>
+      </div>
       <div class="record-fields">
         <div class="record-field">
           <div class="label">Title</div>
@@ -182,7 +238,10 @@ function renderAccountCard(record) {
 
   return `
     <div class="record-card">
-      <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
+      <div class="record-header">
+        <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
+        <button class="delete-btn" data-type="account" data-id="${escapeHtml(record.id)}">Delete</button>
+      </div>
       <div class="record-fields">
         <div class="record-field">
           <div class="label">Type</div>
@@ -217,7 +276,10 @@ function renderTaskCard(record) {
 
   return `
     <div class="record-card">
-      <div class="record-name">${escapeHtml(data.subject || 'N/A')}</div>
+      <div class="record-header">
+        <div class="record-name">${escapeHtml(data.subject || 'N/A')}</div>
+        <button class="delete-btn" data-type="task" data-id="${escapeHtml(record.id)}">Delete</button>
+      </div>
       <div class="record-fields">
         <div class="record-field">
           <div class="label">Status</div>
@@ -250,11 +312,18 @@ function renderTaskCard(record) {
 function loadRecords() {
   chrome.storage.local.get(['salesforce_data'], (result) => {
     const data = result.salesforce_data || {};
-    const opportunities = data.opportunities || [];
-    const leads = data.leads || [];
-    const contacts = data.contacts || [];
-    const accounts = data.accounts || [];
-    const tasks = data.tasks || [];
+    let opportunities = data.opportunities || [];
+    let leads = data.leads || [];
+    let contacts = data.contacts || [];
+    let accounts = data.accounts || [];
+    let tasks = data.tasks || [];
+
+    // Apply search filter
+    opportunities = filterRecords(opportunities, currentSearchText);
+    leads = filterRecords(leads, currentSearchText);
+    contacts = filterRecords(contacts, currentSearchText);
+    accounts = filterRecords(accounts, currentSearchText);
+    tasks = filterRecords(tasks, currentSearchText);
 
     // Update counts
     opportunitiesCount.textContent = opportunities.length;
@@ -268,7 +337,7 @@ function loadRecords() {
       opportunitiesList.innerHTML = `
         <div class="empty-state">
           <div class="icon">📋</div>
-          <div>No opportunities extracted yet</div>
+          <div>${currentSearchText ? 'No matches found' : 'No opportunities extracted yet'}</div>
         </div>
       `;
     } else {
@@ -281,7 +350,7 @@ function loadRecords() {
       leadsList.innerHTML = `
         <div class="empty-state">
           <div class="icon">👤</div>
-          <div>No leads extracted yet</div>
+          <div>${currentSearchText ? 'No matches found' : 'No leads extracted yet'}</div>
         </div>
       `;
     } else {
@@ -294,7 +363,7 @@ function loadRecords() {
       contactsList.innerHTML = `
         <div class="empty-state">
           <div class="icon">📇</div>
-          <div>No contacts extracted yet</div>
+          <div>${currentSearchText ? 'No matches found' : 'No contacts extracted yet'}</div>
         </div>
       `;
     } else {
@@ -307,7 +376,7 @@ function loadRecords() {
       accountsList.innerHTML = `
         <div class="empty-state">
           <div class="icon">🏢</div>
-          <div>No accounts extracted yet</div>
+          <div>${currentSearchText ? 'No matches found' : 'No accounts extracted yet'}</div>
         </div>
       `;
     } else {
@@ -320,13 +389,24 @@ function loadRecords() {
       tasksList.innerHTML = `
         <div class="empty-state">
           <div class="icon">✅</div>
-          <div>No tasks extracted yet</div>
+          <div>${currentSearchText ? 'No matches found' : 'No tasks extracted yet'}</div>
         </div>
       `;
     } else {
       const sorted = [...tasks].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
       tasksList.innerHTML = sorted.map(renderTaskCard).join('');
     }
+
+    // Attach delete button listeners
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const type = e.target.dataset.type;
+        const id = e.target.dataset.id;
+        if (confirm('Delete this record?')) {
+          deleteRecord(type, id);
+        }
+      });
+    });
   });
 }
 
@@ -422,9 +502,9 @@ function handleExtract() {
 }
 
 /**
- * Handle download button click
+ * Handle JSON download
  */
-function handleDownload() {
+function handleDownloadJson() {
   chrome.storage.local.get(['salesforce_data'], (result) => {
     const data = result.salesforce_data || {};
     const opportunities = data.opportunities || [];
@@ -444,7 +524,8 @@ function handleDownload() {
       contacts,
       accounts,
       tasks,
-      exportedAt: new Date().toISOString()
+      exportedAt: new Date().toISOString(),
+      lastSync: data.lastSync
     };
 
     const jsonStr = JSON.stringify(exportData, null, 2);
@@ -463,9 +544,89 @@ function handleDownload() {
   });
 }
 
+/**
+ * Convert records to CSV
+ */
+function recordsToCsv(records, objectType) {
+  if (records.length === 0) return '';
+
+  // Get all unique keys from data
+  const allKeys = new Set();
+  records.forEach(r => {
+    Object.keys(r.data || {}).forEach(k => allKeys.add(k));
+  });
+
+  const headers = ['id', 'objectType', ...Array.from(allKeys), 'sourceUrl', 'lastUpdated'];
+
+  const rows = records.map(r => {
+    const data = r.data || {};
+    return headers.map(h => {
+      let value;
+      if (h === 'id') value = r.id;
+      else if (h === 'objectType') value = r.objectType;
+      else if (h === 'sourceUrl') value = r.sourceUrl;
+      else if (h === 'lastUpdated') value = r.lastUpdated ? new Date(r.lastUpdated).toISOString() : '';
+      else value = data[h] || '';
+
+      // Escape CSV values
+      if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+        value = '"' + value.replace(/"/g, '""') + '"';
+      }
+      return value;
+    }).join(',');
+  });
+
+  return headers.join(',') + '\n' + rows.join('\n');
+}
+
+/**
+ * Handle CSV download
+ */
+function handleDownloadCsv() {
+  chrome.storage.local.get(['salesforce_data'], (result) => {
+    const data = result.salesforce_data || {};
+    const allRecords = [
+      ...(data.opportunities || []),
+      ...(data.leads || []),
+      ...(data.contacts || []),
+      ...(data.accounts || []),
+      ...(data.tasks || [])
+    ];
+
+    if (allRecords.length === 0) {
+      showStatus('No records to download', 'error');
+      return;
+    }
+
+    const csv = recordsToCsv(allRecords, 'all');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `salesforce-data-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showStatus('📥 CSV downloaded', 'success');
+  });
+}
+
+/**
+ * Handle search input
+ */
+function handleSearch(e) {
+  currentSearchText = e.target.value.trim();
+  loadRecords();
+}
+
 // Event listeners
 extractBtn.addEventListener('click', handleExtract);
-downloadBtn.addEventListener('click', handleDownload);
+downloadBtn.addEventListener('click', handleDownloadJson);
+downloadCsvBtn.addEventListener('click', handleDownloadCsv);
+searchInput.addEventListener('input', handleSearch);
 
 // Tab switching
 tabBtns.forEach(btn => {
