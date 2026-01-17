@@ -108,6 +108,75 @@
     }
 
     /**
+     * Extract related Contacts from the Related section
+     */
+    function extractRelatedContacts(parentAccountId) {
+        log('Looking for related Contacts...');
+        const relatedContacts = [];
+
+        try {
+            // Find the Related section - look for "Contacts" heading in related lists
+            const allText = document.body.innerText;
+            const lines = allText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            // Find all links that look like Contact record links
+            const contactLinks = document.querySelectorAll('a[href*="/lightning/r/Contact/"]');
+
+            contactLinks.forEach(link => {
+                const href = link.getAttribute('href') || '';
+                const idMatch = href.match(/\/Contact\/([a-zA-Z0-9]{15,18})/);
+                if (!idMatch) return;
+
+                const contactId = idMatch[1];
+                const contactName = link.textContent?.trim();
+
+                // Skip if no name or already processed
+                if (!contactName || contactName === 'Contact' || relatedContacts.find(c => c.id === contactId)) return;
+
+                // Try to find email/phone near the contact in the DOM
+                let email = null;
+                let phone = null;
+
+                // Look in parent row/card for additional fields
+                const parentRow = link.closest('tr, [class*="listItem"], [class*="card"]');
+                if (parentRow) {
+                    const rowText = parentRow.innerText || '';
+                    // Email pattern
+                    const emailMatch = rowText.match(/[\w.-]+@[\w.-]+\.\w+/);
+                    if (emailMatch) email = emailMatch[0];
+                    // Phone pattern
+                    const phoneMatch = rowText.match(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+                    if (phoneMatch) phone = phoneMatch[0];
+                }
+
+                const contact = {
+                    id: contactId,
+                    objectType: 'contact',
+                    parentId: parentAccountId,
+                    data: {
+                        name: contactName || null,
+                        email: email || null,
+                        phone: phone || null,
+                        accountName: null, // Will be on parent account
+                        title: null,
+                        owner: null
+                    },
+                    sourceUrl: window.location.href,
+                    lastUpdated: Date.now()
+                };
+
+                relatedContacts.push(contact);
+                log('Found related Contact:', contactName);
+            });
+        } catch (err) {
+            log('Error extracting related Contacts:', err.message);
+        }
+
+        log(`Found ${relatedContacts.length} related Contacts`);
+        return relatedContacts;
+    }
+
+    /**
      * Main extraction function for Account records
      */
     async function extractAccountRecordDetail() {
@@ -123,7 +192,7 @@
 
         await waitForAccountContent(id);
 
-        // Extract fields
+        // Extract main Account fields
         const name = getAccountName();
         const type = getAccountFieldByLabel('Type');
         const phone = getAccountFieldByLabel('Phone', true);
@@ -148,12 +217,17 @@
             lastUpdated: Date.now()
         };
 
+        // Extract related Contacts
+        const relatedRecords = extractRelatedContacts(id);
+
         log('=== EXTRACTED ACCOUNT RECORD ===');
         log(JSON.stringify(record, null, 2));
+        log(`=== RELATED RECORDS: ${relatedRecords.length} ===`);
 
-        return record;
+        return { record, relatedRecords };
     }
 
     // Expose to global scope
     window.extractAccountRecordDetail = extractAccountRecordDetail;
 })();
+

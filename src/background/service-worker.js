@@ -152,49 +152,67 @@ function sendExtractionRequest(tabId, requestId) {
 }
 
 /**
- * Merge extracted record into storage
- * Supports opportunities, leads, and contacts based on objectType
+ * Merge extracted record and related records into storage
+ * Supports multiple records in a single storage update to avoid race conditions
  */
-async function mergeToStorage(record) {
+async function mergeToStorage(mainRecord, relatedRecords = []) {
   return new Promise((resolve) => {
     chrome.storage.local.get(['salesforce_data'], (result) => {
       let data = result.salesforce_data || {};
+      const allRecords = [mainRecord, ...relatedRecords];
 
-      // Determine which collection to use based on objectType
-      const objectType = record.objectType || 'opportunity';
-      let collectionName;
-      if (objectType === 'lead') {
-        collectionName = 'leads';
-      } else if (objectType === 'contact') {
-        collectionName = 'contacts';
-      } else if (objectType === 'account') {
-        collectionName = 'accounts';
-      } else if (objectType === 'task') {
-        collectionName = 'tasks';
-      } else {
-        collectionName = 'opportunities';
-      }
+      let mainInserted = 0;
+      let mainUpdated = 0;
+      let relatedCount = 0;
 
-      let collection = data[collectionName] || [];
+      allRecords.forEach((record, index) => {
+        // Determine which collection to use based on objectType
+        const objectType = record.objectType || 'opportunity';
+        let collectionName;
+        if (objectType === 'lead') {
+          collectionName = 'leads';
+        } else if (objectType === 'contact') {
+          collectionName = 'contacts';
+        } else if (objectType === 'account') {
+          collectionName = 'accounts';
+        } else if (objectType === 'task') {
+          collectionName = 'tasks';
+        } else {
+          collectionName = 'opportunities';
+        }
 
-      // Find existing record by id
-      const existingIndex = collection.findIndex(r => r.id === record.id);
-      let inserted = 0, updated = 0;
+        let collection = data[collectionName] || [];
 
-      if (existingIndex >= 0) {
-        collection[existingIndex] = record;
-        updated = 1;
-      } else {
-        collection.push(record);
-        inserted = 1;
-      }
+        // Find existing record by id
+        const existingIndex = collection.findIndex(r => r.id === record.id);
 
-      data[collectionName] = collection;
+        if (existingIndex >= 0) {
+          // Preserve soft-delete state if it exists
+          if (collection[existingIndex].deleted) {
+            record.deleted = true;
+            record.deletedAt = collection[existingIndex].deletedAt;
+          }
+          collection[existingIndex] = record;
+          if (index === 0) mainUpdated = 1;
+        } else {
+          collection.push(record);
+          if (index === 0) mainInserted = 1;
+        }
+
+        if (index > 0) relatedCount++;
+        data[collectionName] = collection;
+      });
+
       data.lastSync = Date.now();
 
       chrome.storage.local.set({ salesforce_data: data }, () => {
-        console.log(`[SW] ${objectType} record merged to storage:`, { inserted, updated });
-        resolve({ inserted, updated, objectType });
+        console.log(`[SW] ${mainRecord.objectType} and ${relatedCount} related records merged to storage`);
+        resolve({
+          inserted: mainInserted,
+          updated: mainUpdated,
+          objectType: mainRecord.objectType,
+          relatedCount
+        });
       });
     });
   });
@@ -218,7 +236,7 @@ async function handleExtractRequest(sendResponse) {
       sendResponse({
         status: 'error',
         reason: 'NOT_SALESFORCE',
-        message: 'Please navigate to a Salesforce Opportunity page'
+        message: 'Please navigate to a Salesforce record page'
       });
       return;
     }
@@ -251,18 +269,18 @@ async function handleExtractRequest(sendResponse) {
 
     // Validate payload
     const payload = result.payload;
-    if (!payload || !payload.id || !payload.data) {
+    if (!payload || !payload.record || !payload.record.id || !payload.record.data) {
       sendResponse({ status: 'error', reason: 'INVALID_PAYLOAD' });
       return;
     }
 
     // Merge to storage
-    const mergeResult = await mergeToStorage(payload);
+    const mergeResult = await mergeToStorage(payload.record, payload.relatedRecords);
 
     sendResponse({
       status: 'ok',
       merged: mergeResult,
-      record: payload
+      record: payload.record
     });
 
   } catch (err) {

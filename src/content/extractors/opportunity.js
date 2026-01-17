@@ -206,6 +206,80 @@
     }
 
     /**
+     * Extract related Tasks from the Related/Activity section
+     */
+    function extractRelatedTasks(parentOpportunityId) {
+        log('Looking for related Tasks...');
+        const relatedTasks = [];
+
+        try {
+            // Find all links that look like Task record links
+            const taskLinks = document.querySelectorAll('a[href*="/lightning/r/Task/"]');
+
+            taskLinks.forEach(link => {
+                const href = link.getAttribute('href') || '';
+                const idMatch = href.match(/\/Task\/([a-zA-Z0-9]{15,18})/);
+                if (!idMatch) return;
+
+                const taskId = idMatch[1];
+                const taskSubject = link.textContent?.trim();
+
+                // Skip if no subject or already processed
+                if (!taskSubject || taskSubject === 'Task' || relatedTasks.find(t => t.id === taskId)) return;
+
+                // Try to find additional fields near the task in the DOM
+                let dueDate = null;
+                let status = null;
+                let assignedTo = null;
+
+                // Look in parent row/card for additional fields
+                const parentRow = link.closest('tr, [class*="listItem"], [class*="card"], [class*="activity"]');
+                if (parentRow) {
+                    const rowText = parentRow.innerText || '';
+
+                    // Date pattern (various formats)
+                    const dateMatch = rowText.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/);
+                    if (dateMatch) dueDate = dateMatch[0];
+
+                    // Status patterns
+                    const statusPatterns = ['Not Started', 'In Progress', 'Completed', 'Waiting', 'Deferred', 'Open', 'Closed'];
+                    for (const s of statusPatterns) {
+                        if (rowText.includes(s)) {
+                            status = s;
+                            break;
+                        }
+                    }
+                }
+
+                const task = {
+                    id: taskId,
+                    objectType: 'task',
+                    parentId: parentOpportunityId,
+                    data: {
+                        subject: taskSubject || null,
+                        dueDate: dueDate || null,
+                        status: status || null,
+                        assignedTo: assignedTo || null,
+                        priority: null,
+                        name: null,
+                        relatedTo: null
+                    },
+                    sourceUrl: window.location.href,
+                    lastUpdated: Date.now()
+                };
+
+                relatedTasks.push(task);
+                log('Found related Task:', taskSubject);
+            });
+        } catch (err) {
+            log('Error extracting related Tasks:', err.message);
+        }
+
+        log(`Found ${relatedTasks.length} related Tasks`);
+        return relatedTasks;
+    }
+
+    /**
      * Main extraction function
      */
     async function extractRecordDetail() {
@@ -243,10 +317,14 @@
             lastUpdated: Date.now()
         };
 
+        // Extract related Tasks
+        const relatedRecords = extractRelatedTasks(id);
+
         log('=== EXTRACTED RECORD ===');
         log(JSON.stringify(record, null, 2));
+        log(`=== RELATED RECORDS: ${relatedRecords.length} ===`);
 
-        return record;
+        return { record, relatedRecords };
     }
 
     // Expose to global scope
@@ -254,3 +332,4 @@
     window.getByLabel = getByLabel;
     window.getPageTextLines = getPageTextLines;
 })();
+

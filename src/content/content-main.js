@@ -179,38 +179,33 @@ async function runExtraction(requestId) {
     console.log('[Content] Detected object type:', objectType);
 
     try {
-        let record;
+        const result = await (async () => {
+            if (objectType === 'opportunity') {
+                if (typeof extractRecordDetail !== 'function') throw new Error('Opportunity extractor not available');
+                return await extractRecordDetail();
+            } else if (objectType === 'lead') {
+                if (typeof extractLeadRecordDetail !== 'function') throw new Error('Lead extractor not available');
+                return await extractLeadRecordDetail();
+            } else if (objectType === 'contact') {
+                if (typeof extractContactRecordDetail !== 'function') throw new Error('Contact extractor not available');
+                return await extractContactRecordDetail();
+            } else if (objectType === 'account') {
+                if (typeof extractAccountRecordDetail !== 'function') throw new Error('Account extractor not available');
+                return await extractAccountRecordDetail();
+            } else if (objectType === 'task') {
+                if (typeof extractTaskRecordDetail !== 'function') throw new Error('Task extractor not available');
+                return await extractTaskRecordDetail();
+            } else {
+                throw new Error('Unsupported page');
+            }
+        })();
 
-        if (objectType === 'opportunity') {
-            if (typeof extractRecordDetail !== 'function') {
-                throw new Error('Opportunity extractor not available');
-            }
-            record = await extractRecordDetail();
-        } else if (objectType === 'lead') {
-            if (typeof extractLeadRecordDetail !== 'function') {
-                throw new Error('Lead extractor not available');
-            }
-            record = await extractLeadRecordDetail();
-        } else if (objectType === 'contact') {
-            if (typeof extractContactRecordDetail !== 'function') {
-                throw new Error('Contact extractor not available');
-            }
-            record = await extractContactRecordDetail();
-        } else if (objectType === 'account') {
-            if (typeof extractAccountRecordDetail !== 'function') {
-                throw new Error('Account extractor not available');
-            }
-            record = await extractAccountRecordDetail();
-        } else if (objectType === 'task') {
-            if (typeof extractTaskRecordDetail !== 'function') {
-                throw new Error('Task extractor not available');
-            }
-            record = await extractTaskRecordDetail();
-        } else {
-            throw new Error('Unsupported page');
-        }
+        const { record, relatedRecords } = result;
 
         console.log('[Content] Extraction successful:', record);
+        if (relatedRecords && relatedRecords.length > 0) {
+            console.log('[Content] Found related records:', relatedRecords.length);
+        }
 
         // Show success indicator
         StatusIndicator.show('Success! Record extracted', 'success');
@@ -219,7 +214,10 @@ async function runExtraction(requestId) {
         chrome.runtime.sendMessage({
             type: 'EXTRACTION_RESULT',
             requestId: requestId,
-            payload: record
+            payload: {
+                record: record,
+                relatedRecords: relatedRecords || []
+            }
         });
 
     } catch (err) {

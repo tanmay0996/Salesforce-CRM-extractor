@@ -152,7 +152,7 @@
         log('=== EXTRACTED TASK RECORD ===');
         log(JSON.stringify(record, null, 2));
 
-        return record;
+        return { record, relatedRecords: [] };
     }
 
     // Expose to global scope
