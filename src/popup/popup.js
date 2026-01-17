@@ -94,9 +94,12 @@ function escapeHtml(text) {
  * Filter records by search text
  */
 function filterRecords(records, searchText) {
-  if (!searchText) return records;
+  // First filter out deleted records
+  let filtered = records.filter(r => !r.deleted);
+
+  if (!searchText) return filtered;
   const lower = searchText.toLowerCase();
-  return records.filter(r => {
+  return filtered.filter(r => {
     const data = r.data || {};
     return Object.values(data).some(v =>
       String(v || '').toLowerCase().includes(lower)
@@ -104,8 +107,115 @@ function filterRecords(records, searchText) {
   });
 }
 
+// Undo state
+let undoState = null;
+let undoTimeout = null;
+let undoCountdown = null;
+
 /**
- * Delete a record from storage
+ * Show undo toast
+ */
+function showUndoToast(objectType, recordId, recordName) {
+  // Remove existing toast if any
+  hideUndoToast();
+
+  undoState = { objectType, recordId };
+  let secondsLeft = 30;
+
+  const toast = document.createElement('div');
+  toast.className = 'undo-toast';
+  toast.id = 'undo-toast';
+  toast.innerHTML = `
+    <span>🗑️ "${recordName}" deleted</span>
+    <button class="undo-btn" id="undoBtn">Undo</button>
+    <span class="undo-timer" id="undoTimer">${secondsLeft}s</span>
+  `;
+  document.body.appendChild(toast);
+
+  // Undo button handler
+  document.getElementById('undoBtn').addEventListener('click', () => {
+    undoDelete();
+  });
+
+  // Countdown timer
+  undoCountdown = setInterval(() => {
+    secondsLeft--;
+    const timerEl = document.getElementById('undoTimer');
+    if (timerEl) timerEl.textContent = `${secondsLeft}s`;
+    if (secondsLeft <= 0) {
+      hideUndoToast();
+    }
+  }, 1000);
+
+  // Auto-hide after 30 seconds
+  undoTimeout = setTimeout(() => {
+    hideUndoToast();
+  }, 30000);
+}
+
+/**
+ * Hide undo toast
+ */
+function hideUndoToast() {
+  undoState = null;
+
+  if (undoTimeout) {
+    clearTimeout(undoTimeout);
+    undoTimeout = null;
+  }
+
+  if (undoCountdown) {
+    clearInterval(undoCountdown);
+    undoCountdown = null;
+  }
+
+  const toast = document.getElementById('undo-toast');
+  if (toast) {
+    toast.classList.add('hiding');
+    setTimeout(() => toast.remove(), 300);
+  }
+}
+
+/**
+ * Undo delete - restore the record
+ */
+function undoDelete() {
+  if (!undoState) return;
+
+  const { objectType, recordId } = undoState;
+
+  chrome.storage.local.get(['salesforce_data'], (result) => {
+    const data = result.salesforce_data || {};
+
+    const collectionMap = {
+      'opportunity': 'opportunities',
+      'lead': 'leads',
+      'contact': 'contacts',
+      'account': 'accounts',
+      'task': 'tasks'
+    };
+
+    const collectionName = collectionMap[objectType];
+    if (!collectionName || !data[collectionName]) return;
+
+    // Find and restore the record
+    const record = data[collectionName].find(r => r.id === recordId);
+    if (record) {
+      record.deleted = false;
+      record.deletedAt = null;
+      data.lastSync = Date.now();
+
+      chrome.storage.local.set({ salesforce_data: data }, () => {
+        showStatus('↩️ Record restored', 'success');
+        hideUndoToast();
+        loadRecords();
+      });
+    }
+  });
+}
+
+/**
+ * Soft delete a record (mark as deleted, don't remove)
  */
 function deleteRecord(objectType, recordId) {
   chrome.storage.local.get(['salesforce_data'], (result) => {
@@ -122,15 +232,23 @@ function deleteRecord(objectType, recordId) {
     const collectionName = collectionMap[objectType];
     if (!collectionName || !data[collectionName]) return;
 
-    data[collectionName] = data[collectionName].filter(r => r.id !== recordId);
-    data.lastSync = Date.now();
+    // Find the record and mark as deleted (soft delete)
+    const record = data[collectionName].find(r => r.id === recordId);
+    if (record) {
+      const recordName = record.data?.name || record.data?.subject || 'Record';
 
-    chrome.storage.local.set({ salesforce_data: data }, () => {
-      showStatus('🗑️ Record deleted', 'success');
-      loadRecords();
-    });
+      record.deleted = true;
+      record.deletedAt = Date.now();
+      data.lastSync = Date.now();
+
+      chrome.storage.local.set({ salesforce_data: data }, () => {
+        showUndoToast(objectType, recordId, recordName);
+        loadRecords();
+      });
+    }
   });
 }
+
 
 /**
  * Render Opportunity card
@@ -397,14 +515,12 @@ function loadRecords() {
       tasksList.innerHTML = sorted.map(renderTaskCard).join('');
     }
 
-    // Attach delete button listeners
+    // Attach delete button listeners (no confirm needed - we have undo)
     document.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const type = e.target.dataset.type;
         const id = e.target.dataset.id;
-        if (confirm('Delete this record?')) {
-          deleteRecord(type, id);
-        }
+        deleteRecord(type, id);
       });
     });
   });
