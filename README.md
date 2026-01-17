@@ -1,133 +1,335 @@
 # SF CRM Extractor
 
-Chrome extension for extracting Salesforce Opportunity records from detail pages.
+A Chrome extension that extracts Salesforce CRM record data from Lightning Experience detail pages.
 
-## Project Structure
+## Supported Objects
+
+| Object | Fields Extracted |
+|--------|------------------|
+| **Opportunity** | Name, Amount, Close Date, Account, Owner |
+| **Lead** | Name, Company, Email, Phone |
+| **Contact** | Name, Title, Account Name, Email, Phone, Owner |
+| **Account** | Name, Type, Phone, Website, Owner, Account Site, Industry |
+| **Task** | Subject, Status, Priority, Due Date, Assigned To, Name, Related To |
+
+---
+
+## Installation
+
+### Step 1: Download/Clone the Extension
+
+```bash
+git clone <repository-url>
+cd crm-scraper
+```
+
+Or download and extract the ZIP file.
+
+### Step 2: Load in Chrome
+
+1. Open Chrome and navigate to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in top-right corner)
+3. Click **Load unpacked**
+4. Select the `crm-scraper` folder (the one containing `manifest.json`)
+5. The extension icon will appear in your toolbar
+
+### Step 3: Pin the Extension (Optional)
+
+1. Click the puzzle piece icon in Chrome toolbar
+2. Click the pin icon next to "SF CRM Extractor"
+
+---
+
+## Usage
+
+1. Navigate to a Salesforce Lightning record page (e.g., `/lightning/r/Opportunity/006xxx/view`)
+2. Click the **SF CRM Extractor** icon in your toolbar
+3. Click **Extract Record**
+4. View extracted data in the popup under the appropriate tab
+5. Use **JSON** or **CSV** to export all data
+
+### Features
+
+- **Search**: Filter records by any field value
+- **Delete**: Remove individual records
+- **Tabs**: Organize by object type (Opps, Leads, Contacts, Accounts, Tasks)
+- **Status Indicator**: Floating indicator on page shows extraction progress
+
+---
+
+## Architecture
+
+### File Structure
 
 ```
 crm-scraper/
-├── manifest.json                    # Extension manifest v3
+├── manifest.json                    # Extension configuration
+├── icons/                           # Extension icons
 ├── src/
 │   ├── background/
 │   │   └── service-worker.js        # Background service worker
 │   ├── content/
-│   │   ├── content-main.js          # Content script entry
-│   │   └── extractors/
-│   │       └── opportunity.js       # Opportunity field extractor
+│   │   ├── content-main.js          # Main content script & Shadow DOM indicator
+│   │   └── extractors/              # Object-specific extractors
+│   │       ├── opportunity.js
+│   │       ├── lead.js
+│   │       ├── contact.js
+│   │       ├── account.js
+│   │       └── task.js
 │   └── popup/
 │       ├── index.html               # Popup UI
 │       └── popup.js                 # Popup logic
-├── dev/
-│   ├── fixture-opportunity.html     # Test fixture HTML
-│   ├── run_fixture_extraction.js    # Puppeteer test runner
-│   └── extracted.json               # Output from test runner
-└── README.md
 ```
 
-## Installation
+### Message Flow
 
-### Load Extension in Chrome
-
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in top-right)
-3. Click **Load unpacked**
-4. Select the `crm-scraper` folder
-5. The extension icon should appear in your toolbar
-
-## Usage
-
-### Extract from Salesforce
-
-1. Navigate to a Salesforce Opportunity record page  
-   URL pattern: `https://*.lightning.force.com/lightning/r/Opportunity/{id}/view`
-2. Click the extension icon to open the popup
-3. Click **Extract Opportunity**
-4. View extracted data in the popup
-5. Click **Download JSON** to save all records locally
-
-## Development
-
-### Prerequisites
-
-- Node.js 16+
-- npm
-
-### Install Dependencies
-
-```bash
-npm install puppeteer
+```
+┌─────────┐    REQUEST_EXTRACT    ┌────────────────┐
+│  Popup  │ ───────────────────▶  │ Service Worker │
+└─────────┘                       └───────┬────────┘
+                                          │
+                                   RUN_EXTRACTION
+                                          │
+                                          ▼
+                                  ┌───────────────┐
+                                  │ Content Script│
+                                  │  (Extractor)  │
+                                  └───────┬───────┘
+                                          │
+                                 EXTRACTION_RESULT
+                                          │
+                                          ▼
+                               ┌─────────────────────┐
+                               │ chrome.storage.local│
+                               │  (salesforce_data)  │
+                               └─────────────────────┘
 ```
 
-### Run Fixture Test
+---
 
-The dev runner uses Puppeteer to test extraction on a static HTML fixture:
+## DOM Selection Strategy
 
-```bash
-node dev/run_fixture_extraction.js
-```
+### Why Text-Based Parsing?
 
-This will:
-- Open `dev/fixture-opportunity.html` in headless Chrome
-- Inject and run the extraction code
-- Write results to `dev/extracted.json`
-- Print extraction summary
+Salesforce Lightning uses dynamic, complex DOM structures with:
+- Shadow DOM components
+- Dynamically generated class names
+- SPA (Single Page Application) navigation that doesn't refresh the page
 
-### Manual Testing
+**Our solution**: Parse `document.body.innerText` to extract visible text content.
 
-1. Load the extension in Chrome
-2. Open `dev/fixture-opportunity.html` in a browser tab
-3. Open DevTools Console
-4. Run: `window.runExtractionForDebug()`
+### Extraction Algorithm
 
-## Messaging Protocol
+```javascript
+// 1. Get all visible text as lines
+const pageText = document.body.innerText;
+const lines = pageText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-### Popup → Background
-```js
-{ type: "REQUEST_EXTRACT" }
-```
-
-### Background → Content Script
-```js
-{ type: "PING" }                              // Handshake check
-{ type: "RUN_EXTRACTION", requestId: "uuid" } // Run extraction
-```
-
-### Content Script → Background
-```js
-{ type: "PONG" }                                              // Handshake response
-{ type: "EXTRACTION_RESULT", requestId: "uuid", payload: {} } // Success
-{ type: "EXTRACTION_ERROR", requestId: "uuid", error: {} }    // Error
-```
-
-## Extracted Data Format
-
-```json
-{
-  "id": "006gK00000AwFtmQAF",
-  "objectType": "opportunity",
-  "data": {
-    "name": "test three",
-    "amount": 12562156,
-    "stage": "Qualification",
-    "closeDate": "2026-01-16",
-    "account": "Acme Corporation",
-    "owner": "Tanmay Srivastava"
-  },
-  "sourceUrl": "https://...",
-  "lastUpdated": 1737131036000
+// 2. Find a field by its label
+function getFieldByLabel(labelText) {
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].toLowerCase() === labelText.toLowerCase()) {
+      // The value is typically on the next line
+      const value = lines[i + 1];
+      
+      // Skip if the "value" is actually another label
+      if (!isCommonLabel(value)) {
+        return value;
+      }
+    }
+  }
+  return null; // Not found
 }
 ```
 
+### Record Name Extraction
+
+```javascript
+// Strategy 1: Find object type label, name follows
+for (let i = 0; i < lines.length; i++) {
+  if (lines[i] === 'Opportunity') {
+    return lines[i + 1]; // Next line is the record name
+  }
+}
+
+// Strategy 2: DOM fallback
+const primaryField = document.querySelector('lightning-formatted-text[slot="primaryField"]');
+return primaryField?.textContent?.trim();
+```
+
+### Handling Dynamic Labels
+
+Some labels include counts (e.g., "Phone (2)"):
+
+```javascript
+// Partial match for labels like "Phone (2)"
+function getFieldByLabel(labelText, partialMatch = false) {
+  const matches = partialMatch 
+    ? line.toLowerCase().startsWith(labelText.toLowerCase())
+    : line.toLowerCase() === labelText.toLowerCase();
+}
+```
+
+### Filtering Invalid Values
+
+We skip button labels and navigation text:
+
+```javascript
+const skipLabels = ['Follow', 'Edit', 'Delete', 'Clone', 'New Case', ...];
+if (skipLabels.includes(potentialValue)) {
+  continue; // Not a real value
+}
+```
+
+---
+
+## Storage Schema
+
+All extracted data is stored in `chrome.storage.local` under a unified key:
+
+```json
+{
+  "salesforce_data": {
+    "opportunities": [
+      {
+        "id": "006gK00000xxxxxx",
+        "objectType": "opportunity",
+        "data": {
+          "name": "Acme Deal",
+          "amount": 50000,
+          "closeDate": "2026-03-15",
+          "account": "Acme Corp",
+          "owner": "John Smith"
+        },
+        "sourceUrl": "https://org.lightning.force.com/lightning/r/Opportunity/006gK00000xxxxxx/view",
+        "lastUpdated": 1737145000000
+      }
+    ],
+    "leads": [
+      {
+        "id": "00QgK00000xxxxxx",
+        "objectType": "lead",
+        "data": {
+          "name": "Jane Doe",
+          "company": "Tech Corp",
+          "email": "jane@techcorp.com",
+          "phone": "(555) 123-4567"
+        },
+        "sourceUrl": "...",
+        "lastUpdated": 1737145000000
+      }
+    ],
+    "contacts": [...],
+    "accounts": [...],
+    "tasks": [...],
+    "lastSync": 1737145000000
+  }
+}
+```
+
+### Deduplication
+
+Records are deduplicated by Salesforce ID:
+
+```javascript
+const existingIndex = collection.findIndex(r => r.id === record.id);
+if (existingIndex >= 0) {
+  collection[existingIndex] = record; // Update existing
+} else {
+  collection.push(record); // Insert new
+}
+```
+
+---
+
+## Export Formats
+
+### JSON Export
+
+Complete data structure with metadata:
+
+```json
+{
+  "opportunities": [...],
+  "leads": [...],
+  "contacts": [...],
+  "accounts": [...],
+  "tasks": [...],
+  "exportedAt": "2026-01-17T18:00:00.000Z",
+  "lastSync": 1737145000000
+}
+```
+
+### CSV Export
+
+Flat format with all fields:
+
+```csv
+id,objectType,name,amount,closeDate,account,owner,sourceUrl,lastUpdated
+006gK...,opportunity,Acme Deal,50000,2026-03-15,Acme Corp,John Smith,https://...,2026-01-17T18:00:00.000Z
+```
+
+---
+
+## Shadow DOM Status Indicator
+
+A floating UI element appears on the Salesforce page during extraction:
+
+| Status | Message | Color |
+|--------|---------|-------|
+| Extracting | "Extracting..." | Blue (animated spinner) |
+| Success | "Success! Record extracted" | Green |
+| Error | "Error: [message]" | Red |
+
+Uses Shadow DOM for complete style isolation from Salesforce's CSS.
+
+---
+
+## Permissions
+
+| Permission | Purpose |
+|------------|---------|
+| `storage` | Store extracted records locally |
+| `tabs` | Get active tab URL to detect Salesforce pages |
+| `activeTab` | Access current tab content |
+| `scripting` | Execute content scripts for extraction |
+
+---
+
+## Development
+
+### Debug in DevTools
+
+On any Salesforce record page, open DevTools Console:
+
+```javascript
+// Manual extraction test
+await window.runExtractionForDebug()
+
+// View page text lines
+window.getPageTextLines()
+```
+
+### Reload After Changes
+
+1. Make code changes
+2. Go to `chrome://extensions/`
+3. Click the reload icon on the extension card
+4. Refresh the Salesforce page
+
+---
+
 ## Troubleshooting
 
-### "Could not establish connection"
-- Refresh the Salesforce page
-- The extension will auto-inject the content script if needed
+| Issue | Solution |
+|-------|----------|
+| "Could not connect to page" | Refresh the Salesforce page |
+| Fields showing "N/A" | Field may be empty or label text differs |
+| Extension not loading | Check `chrome://extensions/` for errors |
+| SPA navigation issues | Wait for page to fully load before extracting |
 
-### Extraction returns null fields
-- Wait for the page to fully load
-- Some Lightning components load dynamically
+---
 
-### No PONG response
-- The content script may not have loaded
-- Click Extract again (auto-retry is built in)
+## License
+
+MIT License
