@@ -1,13 +1,14 @@
 /**
  * Content Script - Main Entry Point
  * Handles messaging with background service worker
- * Orchestrates extraction from Opportunity, Lead, and Contact pages
+ * Orchestrates extraction from Opportunity, Lead, Contact, and Account pages
  */
 
 // The extractors are loaded BEFORE this script via manifest content_scripts:
 // - opportunity.js provides: extractRecordDetail()
 // - lead.js provides: extractLeadRecordDetail()
 // - contact.js provides: extractContactRecordDetail()
+// - account.js provides: extractAccountRecordDetail()
 
 /**
  * Detect the current Salesforce object type from URL
@@ -23,6 +24,9 @@ function detectObjectType() {
     }
     if (url.includes('/lightning/r/Contact/')) {
         return 'contact';
+    }
+    if (url.includes('/lightning/r/Account/')) {
+        return 'account';
     }
 
     return null;
@@ -55,8 +59,13 @@ async function runExtraction(requestId) {
                 throw new Error('Contact extractor not available');
             }
             record = await extractContactRecordDetail();
+        } else if (objectType === 'account') {
+            if (typeof extractAccountRecordDetail !== 'function') {
+                throw new Error('Account extractor not available');
+            }
+            record = await extractAccountRecordDetail();
         } else {
-            throw new Error('Unsupported page. Navigate to an Opportunity, Lead, or Contact record page.');
+            throw new Error('Unsupported page. Navigate to an Opportunity, Lead, Contact, or Account record page.');
         }
 
         console.log('[Content] Extraction successful:', record);
@@ -116,9 +125,12 @@ window.runExtractionForDebug = async function () {
     if (objectType === 'contact' && typeof extractContactRecordDetail === 'function') {
         return await extractContactRecordDetail();
     }
+    if (objectType === 'account' && typeof extractAccountRecordDetail === 'function') {
+        return await extractAccountRecordDetail();
+    }
     throw new Error('No extractor available for this page');
 };
 
 console.log('[Content] SF CRM Extractor content script initialized');
-console.log('[Content] Supports: Opportunity, Lead, Contact');
+console.log('[Content] Supports: Opportunity, Lead, Contact, Account');
 console.log('[Content] Use window.runExtractionForDebug() for manual testing');

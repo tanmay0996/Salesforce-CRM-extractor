@@ -1,7 +1,7 @@
 /**
  * Popup Script
  * Handles UI interactions and communication with background service worker
- * Supports Opportunities, Leads, and Contacts
+ * Supports Opportunities, Leads, Contacts, and Accounts
  */
 
 // DOM Elements
@@ -14,6 +14,8 @@ const leadsList = document.getElementById('leadsList');
 const leadsCount = document.getElementById('leadsCount');
 const contactsList = document.getElementById('contactsList');
 const contactsCount = document.getElementById('contactsCount');
+const accountsList = document.getElementById('accountsList');
+const accountsCount = document.getElementById('accountsCount');
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');
 
@@ -171,6 +173,41 @@ function renderContactCard(record) {
 }
 
 /**
+ * Render Account card
+ */
+function renderAccountCard(record) {
+  const data = record.data || {};
+
+  return `
+    <div class="record-card">
+      <div class="record-name">${escapeHtml(data.name || 'Unnamed Account')}</div>
+      <div class="record-fields">
+        <div class="record-field">
+          <div class="label">Type</div>
+          <div class="value">${escapeHtml(data.type || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Industry</div>
+          <div class="value">${escapeHtml(data.industry || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Phone</div>
+          <div class="value">${escapeHtml(data.phone || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Website</div>
+          <div class="value">${escapeHtml(data.website || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Owner</div>
+          <div class="value">${escapeHtml(data.owner || 'N/A')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Load and render stored records
  */
 function loadRecords() {
@@ -179,11 +216,13 @@ function loadRecords() {
     const opportunities = data.opportunities || [];
     const leads = data.leads || [];
     const contacts = data.contacts || [];
+    const accounts = data.accounts || [];
 
     // Update counts
     opportunitiesCount.textContent = opportunities.length;
     leadsCount.textContent = leads.length;
     contactsCount.textContent = contacts.length;
+    accountsCount.textContent = accounts.length;
 
     // Render Opportunities
     if (opportunities.length === 0) {
@@ -223,6 +262,19 @@ function loadRecords() {
       const sorted = [...contacts].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
       contactsList.innerHTML = sorted.map(renderContactCard).join('');
     }
+
+    // Render Accounts
+    if (accounts.length === 0) {
+      accountsList.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">🏢</div>
+          <div>No accounts extracted yet</div>
+        </div>
+      `;
+    } else {
+      const sorted = [...accounts].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+      accountsList.innerHTML = sorted.map(renderAccountCard).join('');
+    }
   });
 }
 
@@ -246,7 +298,8 @@ function getTypeName(objectType) {
   const names = {
     'opportunity': 'Opportunity',
     'lead': 'Lead',
-    'contact': 'Contact'
+    'contact': 'Contact',
+    'account': 'Account'
   };
   return names[objectType] || 'Record';
 }
@@ -288,6 +341,8 @@ function handleExtract() {
         switchTab('leads');
       } else if (objectType === 'contact') {
         switchTab('contacts');
+      } else if (objectType === 'account') {
+        switchTab('accounts');
       } else {
         switchTab('opportunities');
       }
@@ -320,8 +375,9 @@ function handleDownload() {
     const opportunities = data.opportunities || [];
     const leads = data.leads || [];
     const contacts = data.contacts || [];
+    const accounts = data.accounts || [];
 
-    if (opportunities.length === 0 && leads.length === 0 && contacts.length === 0) {
+    if (opportunities.length === 0 && leads.length === 0 && contacts.length === 0 && accounts.length === 0) {
       showStatus('No records to download', 'error');
       return;
     }
@@ -330,6 +386,7 @@ function handleDownload() {
       opportunities,
       leads,
       contacts,
+      accounts,
       exportedAt: new Date().toISOString()
     };
 

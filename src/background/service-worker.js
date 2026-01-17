@@ -167,6 +167,8 @@ async function mergeToStorage(record) {
         collectionName = 'leads';
       } else if (objectType === 'contact') {
         collectionName = 'contacts';
+      } else if (objectType === 'account') {
+        collectionName = 'accounts';
       } else {
         collectionName = 'opportunities';
       }
