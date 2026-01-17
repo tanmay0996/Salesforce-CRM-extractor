@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Opportunity - Salesforce Fixture</title>
+  <style>
+    /* Minimal SLDS-like styling for fixture */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Salesforce Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f3f3f3;
+      color: #181818;
+    }
+    
+    .slds-page-header {
+      background: white;
+      padding: 16px 24px;
+      border-bottom: 1px solid #dddbda;
+    }
+    
+    .slds-page-header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    
+    .slds-page-header__detail {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    
+    .slds-page-header__detail-block {
+      min-width: 150px;
+    }
+    
+    .slds-text-title {
+      font-size: 12px;
+      color: #706e6b;
+      margin-bottom: 4px;
+    }
+    
+    .slds-text-body_regular {
+      font-size: 14px;
+      color: #181818;
+    }
+    
+    /* Stage Path */
+    .slds-path {
+      background: white;
+      padding: 16px 24px;
+      margin-top: 1px;
+    }
+    
+    .slds-path__scroller {
+      display: flex;
+      gap: 0;
+    }
+    
+    .slds-path__item {
+      position: relative;
+      padding: 8px 24px 8px 32px;
+      background: #ecebea;
+      color: #706e6b;
+      font-size: 13px;
+      font-weight: 500;
+      clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%, 12px 50%);
+      margin-left: -12px;
+    }
+    
+    .slds-path__item:first-child {
+      margin-left: 0;
+      clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+      padding-left: 16px;
+    }
+    
+    .slds-path__item.slds-is-complete {
+      background: #0176d3;
+      color: white;
+    }
+    
+    .slds-path__item.slds-is-active {
+      background: #032d60;
+      color: white;
+    }
+    
+    .slds-path__item.slds-is-incomplete {
+      background: #ecebea;
+      color: #706e6b;
+    }
+    
+    /* Details Section */
+    .slds-form {
+      background: white;
+      padding: 24px;
+      margin-top: 16px;
+    }
+    
+    .slds-form-element {
+      margin-bottom: 16px;
+    }
+    
+    .slds-form-element__label {
+      display: block;
+      font-size: 12px;
+      color: #706e6b;
+      margin-bottom: 4px;
+    }
+    
+    .slds-form-element__control {
+      font-size: 14px;
+      color: #181818;
+    }
+    
+    .highlight-panel {
+      display: flex;
+      gap: 24px;
+      padding: 12px 0;
+    }
+  </style>
+</head>
+<body data-record-id="006gK00000AwFtmQAF">
+  <!-- Page Header with Opportunity Name -->
+  <div class="slds-page-header">
+    <h1>test three</h1>
+    
+    <!-- Highlights Panel (compact layout fields) -->
+    <div class="slds-page-header__detail highlight-panel">
+      <div class="slds-page-header__detail-block">
+        <p class="slds-text-title">Account Name</p>
+        <p class="slds-text-body_regular">Acme Corporation</p>
+      </div>
+      <div class="slds-page-header__detail-block">
+        <p class="slds-text-title">Close Date</p>
+        <p class="slds-text-body_regular">1/16/2026</p>
+      </div>
+      <div class="slds-page-header__detail-block">
+        <p class="slds-text-title">Amount</p>
+        <p class="slds-text-body_regular">$12,562,156.00</p>
+      </div>
+      <div class="slds-page-header__detail-block">
+        <p class="slds-text-title">Opportunity Owner</p>
+        <p class="slds-text-body_regular">Tanmay Srivastava</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Stage Path -->
+  <div class="slds-path">
+    <div class="slds-path__scroller">
+      <div class="slds-path__item slds-is-complete">
+        <span class="slds-path__title">✓</span>
+      </div>
+      <div class="slds-path__item slds-is-active">
+        <span class="slds-path__title">Qualification</span>
+      </div>
+      <div class="slds-path__item slds-is-incomplete">
+        <span class="slds-path__title">Needs Analysis</span>
+      </div>
+      <div class="slds-path__item slds-is-incomplete">
+        <span class="slds-path__title">Value Prop...</span>
+      </div>
+      <div class="slds-path__item slds-is-incomplete">
+        <span class="slds-path__title">Id. Decision...</span>
+      </div>
+      <div class="slds-path__item slds-is-incomplete">
+        <span class="slds-path__title">Perception...</span>
+      </div>
+      <div class="slds-path__item slds-is-incomplete">
+        <span class="slds-path__title">Proposal/Pr...</span>
+      </div>
+      <div class="slds-path__item slds-is-incomplete">
+        <span class="slds-path__title">Negotiatio...</span>
+      </div>
+      <div class="slds-path__item slds-is-incomplete">
+        <span class="slds-path__title">Closed</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Additional Form Fields (fallback testing) -->
+  <div class="slds-form">
+    <div class="slds-form-element">
+      <label class="slds-form-element__label">Stage</label>
+      <div class="slds-form-element__control">Qualification</div>
+    </div>
+    <div class="slds-form-element">
+      <label class="slds-form-element__label">Amount</label>
+      <div class="slds-form-element__control">$12,562,156.00</div>
+    </div>
+    <div class="slds-form-element">
+      <label class="slds-form-element__label">Close Date</label>
+      <div class="slds-form-element__control">1/16/2026</div>
+    </div>
+    <div class="slds-form-element">
+      <label class="slds-form-element__label">Account Name</label>
+      <div class="slds-form-element__control">Acme Corporation</div>
+    </div>
+    <div class="slds-form-element">
+      <label class="slds-form-element__label">Opportunity Owner</label>
+      <div class="slds-form-element__control">Tanmay Srivastava</div>
+    </div>
+  </div>
+  
+  <script>
+    // Simulate URL for testing (extractor reads from window.location)
+    // In real testing, this fixture would be served at a URL containing the ID pattern
+    console.log('[Fixture] Salesforce Opportunity fixture loaded');
+    console.log('[Fixture] data-record-id:', document.body.getAttribute('data-record-id'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "id": "006gK00000AwFtmQAF",
+  "objectType": "opportunity",
+  "data": {
+    "name": "test three",
+    "amount": 12562156,
+    "stage": "Qualification",
+    "closeDate": "2026-01-15",
+    "account": "Acme Corporation",
+    "owner": "Tanmay Srivastava"
+  },
+  "sourceUrl": "file:///D:/Assignment/crm-scraper/dev/fixture-opportunity.html",
+  "lastUpdated": 1768666353777
+}
