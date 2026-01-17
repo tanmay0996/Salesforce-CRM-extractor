@@ -1,7 +1,7 @@
 /**
  * Popup Script
  * Handles UI interactions and communication with background service worker
- * Supports Opportunities, Leads, Contacts, and Accounts
+ * Supports Opportunities, Leads, Contacts, Accounts, and Tasks
  */
 
 // DOM Elements
@@ -16,6 +16,8 @@ const contactsList = document.getElementById('contactsList');
 const contactsCount = document.getElementById('contactsCount');
 const accountsList = document.getElementById('accountsList');
 const accountsCount = document.getElementById('accountsCount');
+const tasksList = document.getElementById('tasksList');
+const tasksCount = document.getElementById('tasksCount');
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');
 
@@ -91,7 +93,7 @@ function renderOpportunityCard(record) {
 
   return `
     <div class="record-card">
-      <div class="record-name">${escapeHtml(data.name || 'Unnamed Opportunity')}</div>
+      <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
       <div class="record-fields">
         <div class="record-field">
           <div class="label">Amount</div>
@@ -118,7 +120,7 @@ function renderLeadCard(record) {
 
   return `
     <div class="record-card">
-      <div class="record-name">${escapeHtml(data.name || 'Unnamed Lead')}</div>
+      <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
       <div class="record-fields">
         <div class="record-field">
           <div class="label">Company</div>
@@ -145,7 +147,7 @@ function renderContactCard(record) {
 
   return `
     <div class="record-card">
-      <div class="record-name">${escapeHtml(data.name || 'Unnamed Contact')}</div>
+      <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
       <div class="record-fields">
         <div class="record-field">
           <div class="label">Title</div>
@@ -180,7 +182,7 @@ function renderAccountCard(record) {
 
   return `
     <div class="record-card">
-      <div class="record-name">${escapeHtml(data.name || 'Unnamed Account')}</div>
+      <div class="record-name">${escapeHtml(data.name || 'N/A')}</div>
       <div class="record-fields">
         <div class="record-field">
           <div class="label">Type</div>
@@ -208,6 +210,41 @@ function renderAccountCard(record) {
 }
 
 /**
+ * Render Task card
+ */
+function renderTaskCard(record) {
+  const data = record.data || {};
+
+  return `
+    <div class="record-card">
+      <div class="record-name">${escapeHtml(data.subject || 'N/A')}</div>
+      <div class="record-fields">
+        <div class="record-field">
+          <div class="label">Status</div>
+          <div class="value">${escapeHtml(data.status || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Priority</div>
+          <div class="value">${escapeHtml(data.priority || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Due Date</div>
+          <div class="value">${escapeHtml(data.dueDate || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Assigned To</div>
+          <div class="value">${escapeHtml(data.assignedTo || 'N/A')}</div>
+        </div>
+        <div class="record-field">
+          <div class="label">Related To</div>
+          <div class="value">${escapeHtml(data.relatedTo || 'N/A')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
  * Load and render stored records
  */
 function loadRecords() {
@@ -217,12 +254,14 @@ function loadRecords() {
     const leads = data.leads || [];
     const contacts = data.contacts || [];
     const accounts = data.accounts || [];
+    const tasks = data.tasks || [];
 
     // Update counts
     opportunitiesCount.textContent = opportunities.length;
     leadsCount.textContent = leads.length;
     contactsCount.textContent = contacts.length;
     accountsCount.textContent = accounts.length;
+    tasksCount.textContent = tasks.length;
 
     // Render Opportunities
     if (opportunities.length === 0) {
@@ -275,6 +314,19 @@ function loadRecords() {
       const sorted = [...accounts].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
       accountsList.innerHTML = sorted.map(renderAccountCard).join('');
     }
+
+    // Render Tasks
+    if (tasks.length === 0) {
+      tasksList.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">✅</div>
+          <div>No tasks extracted yet</div>
+        </div>
+      `;
+    } else {
+      const sorted = [...tasks].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+      tasksList.innerHTML = sorted.map(renderTaskCard).join('');
+    }
   });
 }
 
@@ -299,7 +351,8 @@ function getTypeName(objectType) {
     'opportunity': 'Opportunity',
     'lead': 'Lead',
     'contact': 'Contact',
-    'account': 'Account'
+    'account': 'Account',
+    'task': 'Task'
   };
   return names[objectType] || 'Record';
 }
@@ -343,6 +396,8 @@ function handleExtract() {
         switchTab('contacts');
       } else if (objectType === 'account') {
         switchTab('accounts');
+      } else if (objectType === 'task') {
+        switchTab('tasks');
       } else {
         switchTab('opportunities');
       }
@@ -376,8 +431,9 @@ function handleDownload() {
     const leads = data.leads || [];
     const contacts = data.contacts || [];
     const accounts = data.accounts || [];
+    const tasks = data.tasks || [];
 
-    if (opportunities.length === 0 && leads.length === 0 && contacts.length === 0 && accounts.length === 0) {
+    if (opportunities.length === 0 && leads.length === 0 && contacts.length === 0 && accounts.length === 0 && tasks.length === 0) {
       showStatus('No records to download', 'error');
       return;
     }
@@ -387,6 +443,7 @@ function handleDownload() {
       leads,
       contacts,
       accounts,
+      tasks,
       exportedAt: new Date().toISOString()
     };
 
